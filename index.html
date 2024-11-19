@@ -67,6 +67,10 @@
     <div id="menu">
         <h1>Welcome to the Game</h1>
         <button id="loginButton">Login with Google</button>
+        <button id="guestButton">Play as Guest</button>
+        <button id="signUpButton">Sign Up with Email</button>
+        <button id="loginEmailButton">Log In with Email</button>
+        <button id="anonymousButton">Play Anonymously</button>
         <div id="userInfo" style="display: none;">
             <h2 id="username"></h2>
             <button id="startGameButton">Start Game</button>
@@ -92,7 +96,7 @@
             projectId: "auth-29641",
             storageBucket: "auth-29641.appspot.com",
             messagingSenderId: "18460799597",
-            appId: "1:18460799597:web:a081c485cb4f593ce38564",
+            appId: "1:18460799597:web:a081c485cb4f593ce38564"
         };
 
         // Initialize Firebase
@@ -109,7 +113,7 @@
         const errorMessage = document.getElementById("errorMessage");
 
         let score = 0, coins = 0, level = 1, userId = null;
-        let isGameRunning = false, isPaused = false;
+        let isGameRunning = false, isPaused = false, isGuest = false;
 
         const bucket = { x: 0, y: 0, width: 0, height: 0, speed: 10 };
         const objects = [];
@@ -140,7 +144,7 @@
         }
 
         function saveProgress() {
-            if (!userId) return;
+            if (!userId || isGuest) return; // Skip saving if playing as guest
             db.ref(`users/${userId}`).set({ score, coins, level }).catch((error) => {
                 errorMessage.textContent = "Failed to save progress!";
                 console.error(error);
@@ -148,7 +152,7 @@
         }
 
         function loadProgress() {
-            if (!userId) return;
+            if (!userId || isGuest) return; // Skip loading if playing as guest
             db.ref(`users/${userId}`).once("value").then((snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -167,7 +171,6 @@
 
         function gameLoop() {
             if (!isGameRunning || isPaused) return;
-
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Move bucket
@@ -184,13 +187,8 @@
             objects.forEach((obj) => {
                 obj.y += obj.speed;
                 ctx.fillRect(obj.x, obj.y, obj.size, obj.size);
-
-                if (
-                    obj.x < bucket.x + bucket.width &&
-                    obj.x + obj.size > bucket.x &&
-                    obj.y < bucket.y + bucket.height &&
-                    obj.y + obj.size > bucket.y
-                ) {
+                if (obj.x < bucket.x + bucket.width && obj.x + obj.size > bucket.x &&
+                    obj.y < bucket.y + bucket.height && obj.y + obj.size > bucket.y) {
                     score++;
                     coins++;
                     toRemove.push(obj);
@@ -201,12 +199,7 @@
             });
 
             // Remove collected/fallen objects
-            objects.splice(
-                0,
-                objects.length,
-                ...objects.filter((obj) => !toRemove.includes(obj))
-            );
-
+            objects.splice(0, objects.length, ...objects.filter((obj) => !toRemove.includes(obj)));
             updateUI();
             requestAnimationFrame(gameLoop);
         }
@@ -220,26 +213,28 @@
 
         // Google Authentication
         document.getElementById("loginButton").addEventListener("click", () => {
-            auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
                 .then((result) => {
                     userId = result.user.uid;
+                    isGuest = false;
                     document.getElementById("username").textContent = `Welcome, ${result.user.displayName}`;
-                    document.getElementById("loginButton").style.display = "none";
-                    document.getElementById("userInfo").style.display = "block";
-                    loadProgress();
+                    document.getElementById("menu").style.display = "none";
+                    startGame();
                 })
-                .catch(console.error);
+                .catch((error) => {
+                    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+                        auth.signInWithRedirect(provider);
+                    } else {
+                        console.error("Error during Google sign-in:", error);
+                        document.getElementById("errorMessage").textContent = `Google login failed: ${error.message}`;
+                    }
+                });
         });
 
-        document.getElementById("startGameButton").addEventListener("click", startGame);
-
-        setInterval(() => {
-            if (isGameRunning && !isPaused) {
-                const size = Math.random() * 30 + 20;
-                const speed = Math.random() * level + 2;
-                objects.push({ x: Math.random() * (canvas.width - size), y: 0, size, speed });
-            }
-        }, 1000);
-    </script>
-</body>
-</html>
+        // Handle redirect result
+        auth.getRedirectResult().then((result) => {
+            if (result.user) {
+                userId = result.user.uid;
+                isGuest = false;
+                document.getElementById("username").textContent = `Welcome, ${result
