@@ -1,0 +1,166 @@
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyDaABc6bOm9Xe_ziIpm81CREJ1PUtuHXeQ",
+        authDomain: "auth-29641.firebaseapp.com",
+        databaseURL: "https://auth-29641-default-rtdb.firebaseio.com/",
+        projectId: "auth-29641",
+        storageBucket: "auth-29641.appspot.com",
+        messagingSenderId: "18460799597",
+        appId: "1:18460799597:web:a081c485cb4f593ce38564",
+    };
+
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreEl = document.getElementById("score");
+    const coinsEl = document.getElementById("coins");
+    const levelEl = document.getElementById("level");
+    const pauseMessage = document.getElementById("pauseMessage");
+    const errorMessage = document.getElementById("errorMessage");
+
+    let score = 0, coins = 0, level = 1, userId = null;
+    let isGameRunning = false, isPaused = false;
+
+    const bucket = { x: 0, y: 0, width: 0, height: 0, speed: 5 };
+    const objects = [];
+    const keysPressed = {}; // Tracks which keys are pressed
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        bucket.width = canvas.width * 0.1;
+        bucket.height = canvas.height * 0.02;
+        bucket.x = (canvas.width - bucket.width) / 2;
+        bucket.y = canvas.height - bucket.height - 10;
+    }
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    function updateUI() {
+        scoreEl.textContent = `Score: ${score}`;
+        coinsEl.textContent = `Coins: ${coins}`;
+        levelEl.textContent = `Level: ${level}`;
+    }
+
+    function startGame() {
+        isGameRunning = true;
+        isPaused = false;
+        document.getElementById("menu").style.display = "none";
+        gameLoop();
+    }
+
+    function saveProgress() {
+        if (!userId) return;
+        db.ref(`users/${userId}`).set({ score, coins, level }).catch((error) => {
+            errorMessage.textContent = "Failed to save progress!";
+            console.error(error);
+        });
+    }
+
+    function loadProgress() {
+        if (!userId) return;
+        db.ref(`users/${userId}`).once("value").then((snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                score = data.score || 0;
+                coins = data.coins || 0;
+                level = data.level || 1;
+                updateUI();
+            }
+        }).catch(console.error);
+    }
+
+    function togglePause() {
+        isPaused = !isPaused;
+        pauseMessage.style.display = isPaused ? "block" : "none";
+    }
+
+    function gameLoop() {
+        if (!isGameRunning || isPaused) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Update bucket position
+        if (keysPressed["ArrowLeft"] && bucket.x > 0) bucket.x -= bucket.speed;
+        if (keysPressed["ArrowRight"] && bucket.x + bucket.width < canvas.width) bucket.x += bucket.speed;
+
+        // Draw bucket
+        ctx.fillStyle = "red";
+        ctx.fillRect(bucket.x, bucket.y, bucket.width, bucket.height);
+
+        // Update objects
+        const toRemove = [];
+        ctx.fillStyle = "gold";
+        objects.forEach((obj) => {
+            obj.y += obj.speed;
+            ctx.fillRect(obj.x, obj.y, obj.size, obj.size);
+
+            if (
+                obj.x < bucket.x + bucket.width &&
+                obj.x + obj.size > bucket.x &&
+                obj.y < bucket.y + bucket.height &&
+                obj.y + obj.size > bucket.y
+            ) {
+                score++;
+                coins++;
+                toRemove.push(obj);
+                saveProgress();
+            } else if (obj.y > canvas.height) {
+                toRemove.push(obj);
+            }
+        });
+
+        // Remove collected/fallen objects
+        objects.splice(
+            0,
+            objects.length,
+            ...objects.filter((obj) => !toRemove.includes(obj))
+        );
+
+        updateUI();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // Event listeners to track arrow key presses
+    window.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+            keysPressed[e.key] = true;
+        }
+    });
+
+    window.addEventListener("keyup", (e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+            keysPressed[e.key] = false;
+        }
+        if (e.key === "Escape") {
+            togglePause();
+        }
+    });
+
+    // Google Authentication
+    document.getElementById("loginButton").addEventListener("click", () => {
+        auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+            .then((result) => {
+                userId = result.user.uid;
+                document.getElementById("username").textContent = `Welcome, ${result.user.displayName}`;
+                document.getElementById("loginButton").style.display = "none";
+                document.getElementById("userInfo").style.display = "block";
+                loadProgress();
+            })
+            .catch(console.error);
+    });
+
+    document.getElementById("startGameButton").addEventListener("click", startGame);
+
+    setInterval(() => {
+        if (isGameRunning && !isPaused) {
+            const size = Math.random() * 30 + 20;
+            const speed = Math.random() * level + 2;
+            objects.push({ x: Math.random() * (canvas.width - size), y: 0, size, speed });
+        }
+    }, 1000);
+</script>
