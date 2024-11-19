@@ -103,8 +103,8 @@
   
       // Initialize Firebase  
       const app = firebase.initializeApp(firebaseConfig);  
-      const auth = firebase.auth();  
-      const db = firebase.database();  
+      const auth = app.auth();  
+      const db = app.database();  
   
       const canvas = document.getElementById("gameCanvas");  
       const ctx = canvas.getContext("2d");  
@@ -118,7 +118,11 @@
       let isGameRunning = false, isPaused = false, isGuest = false;  
   
       const bucket = { x: 0, y: 0, width: 0, height: 0, speed: 10 };  
-      const objects = [];  
+      const objects = [  
+        { x: 100, y: 100, size: 20, speed: 2 },  
+        { x: 200, y: 200, size: 30, speed: 3 },  
+        { x: 300, y: 300, size: 40, speed: 4 },  
+      ];  
       let keysPressed = {};  
   
       function resizeCanvas() {  
