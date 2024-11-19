@@ -87,6 +87,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js"></script>
+
+    <!-- Your custom JavaScript code -->
     <script>
         // Firebase Configuration
         const firebaseConfig = {
@@ -237,4 +239,15 @@
             if (result.user) {
                 userId = result.user.uid;
                 isGuest = false;
-                document.getElementById("username").textContent = `Welcome, ${result
+                document.getElementById("username").textContent = `Welcome, ${result.user.displayName}`;
+                document.getElementById("menu").style.display = "none";
+                startGame();
+            }
+        }).catch((error) => {
+            console.error("Error during redirect sign-in:", error);
+            document.getElementById("errorMessage").textContent = `Login failed: ${error.message}`;
+        });
+    </script>
+</body>
+</html>
+
