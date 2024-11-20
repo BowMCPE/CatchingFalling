@@ -14,20 +14,23 @@
             display: block;
             background: linear-gradient(to bottom, #1e90ff, #ffcccb);
         }
-        #menu {
+        #menu, #shopModal {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.8);
-            display: flex;
+            display: none;
             justify-content: center;
             align-items: center;
             flex-direction: column;
             color: white;
         }
-        #menu button {
+        #menu.active, #shopModal.active {
+            display: flex;
+        }
+        #menu button, #shopModal button {
             background: #FF4500;
             color: white;
             border: none;
@@ -47,25 +50,41 @@
         #score { top: 10px; left: 10px; }
         #coins { top: 10px; right: 10px; }
         #level { top: 50px; left: 10px; }
+        #shopButton {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: #32CD32;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 20px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-    <div id="menu">
+    <div id="menu" class="active">
         <h1>Catch the Falling Objects</h1>
         <button id="loginButton">Login with Google</button>
         <button id="guestButton">Play as Guest</button>
+    </div>
+    <div id="shopModal">
+        <h1>Shop</h1>
+        <div id="shopItems"></div>
+        <button id="closeShopButton">Close Shop</button>
     </div>
     <div id="score">Score: 0</div>
     <div id="coins">Coins: 0</div>
     <div id="level">Level: 1</div>
     <canvas id="gameCanvas"></canvas>
+    <button id="shopButton">Shop</button>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
         import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
 
-        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDaABc6bOm9Xe_ziIpm81CREJ1PUtuHXeQ",
             authDomain: "auth-29641.firebaseapp.com",
@@ -76,12 +95,10 @@
             appId: "1:18460799597:web:a081c485cb4f593ce38564"
         };
 
-        // Firebase Initialization
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const database = getDatabase(app);
 
-        // DOM Elements
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const loginButton = document.getElementById("loginButton");
@@ -89,19 +106,24 @@
         const scoreDiv = document.getElementById("score");
         const coinsDiv = document.getElementById("coins");
         const levelDiv = document.getElementById("level");
+        const shopButton = document.getElementById("shopButton");
+        const shopModal = document.getElementById("shopModal");
+        const closeShopButton = document.getElementById("closeShopButton");
+        const shopItemsDiv = document.getElementById("shopItems");
 
-        // Canvas Setup
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas();
 
-        // Game Variables
         let score = 0;
         let coins = 0;
         let level = 1;
         let missedObjects = 0;
         const maxMissed = 5;
-        let isGameRunning = false;
-        let objects = [];
+        const objects = [];
         const bucket = {
             x: canvas.width / 2 - 50,
             y: canvas.height - 30,
@@ -111,7 +133,48 @@
             color: "red"
         };
 
-        // Functions
+        const shopItems = [
+            { name: "Wider Bucket", cost: 10, effect: () => bucket.width += 20 },
+            { name: "Faster Bucket", cost: 20, effect: () => bucket.speed += 5 },
+            { name: "Bucket Color: Blue", cost: 15, effect: () => bucket.color = "blue" }
+        ];
+
+        function updateUI() {
+            scoreDiv.textContent = `Score: ${score}`;
+            coinsDiv.textContent = `Coins: ${coins}`;
+            levelDiv.textContent = `Level: ${level}`;
+        }
+
+        function openShop() {
+            shopItemsDiv.innerHTML = shopItems.map(item => `
+                <div>
+                    <p>${item.name} - ${item.cost} Coins</p>
+                    <button ${coins < item.cost ? "disabled" : ""} onclick="purchaseItem('${item.name}')">
+                        ${coins < item.cost ? "Not Enough Coins" : "Buy"}
+                    </button>
+                </div>
+            `).join('');
+            shopModal.classList.add("active");
+        }
+
+        function closeShop() {
+            shopModal.classList.remove("active");
+        }
+
+        function purchaseItem(itemName) {
+            const item = shopItems.find(i => i.name === itemName);
+            if (item && coins >= item.cost) {
+                coins -= item.cost;
+                item.effect();
+                updateUI();
+                alert(`Purchased ${item.name}!`);
+            } else {
+                alert("Not enough coins!");
+            }
+        }
+
+        window.purchaseItem = purchaseItem;
+
         function spawnObject() {
             const size = Math.random() * 20 + 20;
             objects.push({
@@ -119,7 +182,7 @@
                 y: -size,
                 width: size,
                 height: size,
-                speed: Math.random() * 2 + level // Speed increases with level
+                speed: Math.random() * 2 + level
             });
         }
 
@@ -130,9 +193,7 @@
 
         function drawObjects() {
             ctx.fillStyle = "orange";
-            objects.forEach(obj => {
-                ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
-            });
+            objects.forEach(obj => ctx.fillRect(obj.x, obj.y, obj.width, obj.height));
         }
 
         function updateObjects() {
@@ -147,108 +208,48 @@
                                  obj.x + obj.width > bucket.x;
                 if (isCaught) {
                     score += 10;
-                    coins += 1;
+                    coins++;
                     return false;
                 }
                 return true;
             });
 
             if (missedObjects >= maxMissed) {
-                isGameRunning = false;
-                alert("Game Over! Reload to play again.");
-            }
-        }
-
-        function updateUI() {
-            scoreDiv.textContent = `Score: ${score}`;
-            coinsDiv.textContent = `Coins: ${coins}`;
-            levelDiv.textContent = `Level: ${level}`;
-        }
-
-        function checkLevelUp() {
-            if (score >= level * 100) { // Example: Level up every 100 points
-                level++;
+                alert("Game Over!");
+                location.reload();
             }
         }
 
         function gameLoop() {
-            if (!isGameRunning) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawBucket();
             drawObjects();
             updateObjects();
-            checkLevelUp();
             updateUI();
             requestAnimationFrame(gameLoop);
         }
 
-        function loginWithGoogle() {
+        loginButton.addEventListener("click", () => {
             const provider = new GoogleAuthProvider();
-            signInWithPopup(auth, provider)
-                .then(result => {
-                    const user = result.user;
-                    console.log(`Logged in as: ${user.displayName}`);
-                    loadProgress(user.uid);
-                    document.getElementById("menu").style.display = "none"; // Hide menu
-                    isGameRunning = true;
-                    gameLoop();
-                })
-                .catch(error => {
-                    alert("Login failed: " + error.message);
-                    console.error(error);
-                });
-        }
-
-        function saveProgress(userId) {
-            set(ref(database, `users/${userId}`), {
-                score,
-                coins,
-                level,
-                bucketColor: bucket.color
-            }).catch(console.error);
-        }
-
-        function loadProgress(userId) {
-            const userRef = ref(database, `users/${userId}`);
-            get(userRef).then(snapshot => {
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
-                    score = data.score || 0;
-                    coins = data.coins || 0;
-                    level = data.level || 1;
-                    bucket.color = data.bucketColor || "red";
-                    updateUI();
-                }
-            }).catch(console.error);
-        }
-
-        // Event Listeners
-        document.addEventListener("keydown", event => {
-            if (event.key === "ArrowLeft") bucket.x = Math.max(0, bucket.x - bucket.speed);
-            if (event.key === "ArrowRight") bucket.x = Math.min(canvas.width - bucket.width, bucket.x + bucket.speed);
+            signInWithPopup(auth, provider).then(result => {
+                console.log("Logged in:", result.user.displayName);
+                document.getElementById("menu").classList.remove("active");
+                gameLoop();
+            });
         });
 
-        canvas.addEventListener("touchmove", event => {
-            const touchX = event.touches[0].clientX;
-            bucket.x = Math.min(canvas.width - bucket.width, Math.max(0, touchX - bucket.width / 2));
-        });
-
-        loginButton.addEventListener("click", loginWithGoogle);
         guestButton.addEventListener("click", () => {
-            document.getElementById("menu").style.display = "none"; // Hide menu
-            isGameRunning = true;
+            document.getElementById("menu").classList.remove("active");
             gameLoop();
         });
 
-        // Spawn objects periodically
-        setInterval(() => {
-            if (isGameRunning) spawnObject();
-        }, 1000);
+        shopButton.addEventListener("click", openShop);
+        closeShopButton.addEventListener("click", closeShop);
 
-        // Save progress periodically
         setInterval(() => {
-            if (auth.currentUser && isGameRunning) saveProgress(auth.currentUser.uid);
-        }, 5000);
+            if (objects.length < 5) spawnObject();
+        }, 1000);
     </script>
 </body>
 </html>
+
