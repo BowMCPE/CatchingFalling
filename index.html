@@ -12,7 +12,7 @@
         }
         canvas {
             display: block;
-            background: linear-gradient(to bottom, #1e90ff, #ffcccb); /* Colorful theme */
+            background: linear-gradient(to bottom, #1e90ff, #ffcccb);
         }
         #menu {
             position: absolute;
@@ -47,24 +47,13 @@
         #score { top: 10px; left: 10px; }
         #coins { top: 10px; right: 10px; }
         #level { top: 50px; left: 10px; }
-        .power-up {
-            position: absolute;
-            background-color: yellow;
-            font-weight: bold;
-            padding: 5px 10px;
-            border-radius: 5px;
-        }
     </style>
 </head>
 <body>
     <div id="menu">
-        <h1>Welcome to the Game</h1>
+        <h1>Catch the Falling Objects</h1>
         <button id="loginButton">Login with Google</button>
         <button id="guestButton">Play as Guest</button>
-        <div id="userInfo" style="display: none;">
-            <h2 id="username"></h2>
-            <button id="startGame">Start Game</button>
-        </div>
     </div>
     <div id="score">Score: 0</div>
     <div id="coins">Coins: 0</div>
@@ -74,9 +63,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-        import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
 
-        // Firebase configuration
+        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDaABc6bOm9Xe_ziIpm81CREJ1PUtuHXeQ",
             authDomain: "auth-29641.firebaseapp.com",
@@ -87,23 +76,21 @@
             appId: "1:18460799597:web:a081c485cb4f593ce38564"
         };
 
-        // Initialize Firebase
+        // Firebase Initialization
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const database = getDatabase(app);
 
         // DOM Elements
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
         const loginButton = document.getElementById("loginButton");
         const guestButton = document.getElementById("guestButton");
-        const userInfo = document.getElementById("userInfo");
-        const username = document.getElementById("username");
-        const startGameButton = document.getElementById("startGame");
         const scoreDiv = document.getElementById("score");
         const coinsDiv = document.getElementById("coins");
         const levelDiv = document.getElementById("level");
 
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
+        // Canvas Setup
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
@@ -111,189 +98,154 @@
         let score = 0;
         let coins = 0;
         let level = 1;
-        let isGameRunning = false;
-        let userId = null;
         let missedObjects = 0;
+        const maxMissed = 5;
+        let isGameRunning = false;
+        let objects = [];
         const bucket = {
             x: canvas.width / 2 - 50,
             y: canvas.height - 30,
             width: 100,
             height: 20,
             speed: 20,
-            skin: "red" // Default skin
+            color: "red"
         };
-        let objects = [];
-        let powerUps = [];
 
-        // Firebase Auth
-        loginButton.addEventListener("click", () => {
-            const provider = new GoogleAuthProvider();
-            signInWithPopup(auth, provider)
-                .then((result) => {
-                    const user = result.user;
-                    userId = user.uid;
-                    username.innerText = `Welcome, ${user.displayName.replace(/[<>]/g, "")}`;
-                    loginButton.style.display = "none";
-                    guestButton.style.display = "none";
-                    userInfo.style.display = "block";
-                    loadProgress(userId);
-                })
-                .catch((error) => alert("Failed to log in. Please try again."));
-        });
-
-        // Guest mode
-        guestButton.addEventListener("click", () => {
-            userId = null;
-            username.innerText = "Playing as Guest";
-            loginButton.style.display = "none";
-            guestButton.style.display = "none";
-            userInfo.style.display = "block";
-            resetGameState();
-        });
-
-        // Firebase Database
-        function loadProgress(userId) {
-            get(child(ref(database), `users/${userId}`))
-                .then((snapshot) => {
-                    if (snapshot.exists()) {
-                        const data = snapshot.val();
-                        score = data.score ?? 0;
-                        coins = data.coins ?? 0;
-                        level = data.level ?? 1;
-                        updateUI();
-                    }
-                })
-                .catch(() => alert("Failed to load progress."));
+        // Functions
+        function spawnObject() {
+            const size = Math.random() * 20 + 20;
+            objects.push({
+                x: Math.random() * (canvas.width - size),
+                y: -size,
+                width: size,
+                height: size,
+                speed: Math.random() * 2 + level // Speed increases with level
+            });
         }
 
-        function saveProgress(userId) {
-            if (userId) {
-                set(ref(database, `users/${userId}`), {
-                    score,
-                    coins,
-                    level
-                }).catch(() => alert("Failed to save progress."));
+        function drawBucket() {
+            ctx.fillStyle = bucket.color;
+            ctx.fillRect(bucket.x, bucket.y, bucket.width, bucket.height);
+        }
+
+        function drawObjects() {
+            ctx.fillStyle = "orange";
+            objects.forEach(obj => {
+                ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+            });
+        }
+
+        function updateObjects() {
+            objects.forEach(obj => obj.y += obj.speed);
+            objects = objects.filter(obj => {
+                if (obj.y > canvas.height) {
+                    missedObjects++;
+                    return false;
+                }
+                const isCaught = obj.y + obj.height >= bucket.y &&
+                                 obj.x < bucket.x + bucket.width &&
+                                 obj.x + obj.width > bucket.x;
+                if (isCaught) {
+                    score += 10;
+                    coins += 1;
+                    return false;
+                }
+                return true;
+            });
+
+            if (missedObjects >= maxMissed) {
+                isGameRunning = false;
+                alert("Game Over! Reload to play again.");
             }
         }
 
         function updateUI() {
-            scoreDiv.innerText = `Score: ${score}`;
-            coinsDiv.innerText = `Coins: ${coins}`;
-            levelDiv.innerText = `Level: ${level}`;
+            scoreDiv.textContent = `Score: ${score}`;
+            coinsDiv.textContent = `Coins: ${coins}`;
+            levelDiv.textContent = `Level: ${level}`;
         }
 
-        // Game Initialization
-        startGameButton.addEventListener("click", () => {
-            if (isGameRunning) return;
-            isGameRunning = true;
-            resetGameState();
-            document.getElementById("menu").style.display = "none";
-            gameLoop();
-        });
-
-        function resetGameState() {
-            score = 0;
-            coins = 0;
-            level = 1;
-            objects = [];
-            powerUps = [];
-            missedObjects = 0;
-            bucket.skin = "red"; // Reset skin
-            updateUI();
-        }
-
-        // Power-ups
-        function generatePowerUp() {
-            const x = Math.random() * canvas.width;
-            powerUps.push({ x, y: 0, speed: 2, type: "boost" });
+        function checkLevelUp() {
+            if (score >= level * 100) { // Example: Level up every 100 points
+                level++;
+            }
         }
 
         function gameLoop() {
             if (!isGameRunning) return;
-
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Draw bucket
-            ctx.fillStyle = bucket.skin;
-            ctx.fillRect(bucket.x, bucket.y, bucket.width, bucket.height);
-
-            // Draw falling objects
-            objects.forEach((obj, index) => {
-                ctx.fillStyle = "gold";
-                ctx.fillRect(obj.x, obj.y, 20, 20);
-                obj.y += obj.speed;
-
-                // Collision with bucket
-                if (
-                    obj.x < bucket.x + bucket.width &&
-                    obj.x + 20 > bucket.x &&
-                    obj.y < bucket.y + bucket.height &&
-                    obj.y + 20 > bucket.y
-                ) {
-                    objects.splice(index, 1);
-                    score++;
-                    coins++;
-                    updateUI();
-                }
-
-                // Missed objects
-                if (obj.y > canvas.height) {
-                    objects.splice(index, 1);
-                    missedObjects++;
-                    if (missedObjects > 3) {
-                        isGameRunning = false;
-                        alert("Game Over!");
-                        saveProgress(userId);
-                    }
-                }
-            });
-
-            // Draw power-ups
-            powerUps.forEach((power, index) => {
-                ctx.fillStyle = "blue";
-                ctx.fillRect(power.x, power.y, 20, 20);
-                power.y += power.speed;
-
-                // Power-up collision
-                if (
-                    power.x < bucket.x + bucket.width &&
-                    power.x + 20 > bucket.x &&
-                    power.y < bucket.y + bucket.height &&
-                    power.y + 20 > bucket.y
-                ) {
-                    powerUps.splice(index, 1);
-                    bucket.skin = "blue"; // Example: Boost
-                }
-            });
-
+            drawBucket();
+            drawObjects();
+            updateObjects();
+            checkLevelUp();
+            updateUI();
             requestAnimationFrame(gameLoop);
         }
 
-        // Generate objects and power-ups
+        function loginWithGoogle() {
+            const provider = new GoogleAuthProvider();
+            signInWithPopup(auth, provider)
+                .then(result => {
+                    const user = result.user;
+                    loadProgress(user.uid);
+                    isGameRunning = true;
+                    gameLoop();
+                })
+                .catch(error => {
+                    alert("Login failed: " + error.message);
+                    console.error(error);
+                });
+        }
+
+        function saveProgress(userId) {
+            set(ref(database, `users/${userId}`), {
+                score,
+                coins,
+                level,
+                bucketColor: bucket.color
+            }).catch(console.error);
+        }
+
+        function loadProgress(userId) {
+            const userRef = ref(database, `users/${userId}`);
+            get(userRef).then(snapshot => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    score = data.score || 0;
+                    coins = data.coins || 0;
+                    level = data.level || 1;
+                    bucket.color = data.bucketColor || "red";
+                    updateUI();
+                }
+            }).catch(console.error);
+        }
+
+        // Event Listeners
+        document.addEventListener("keydown", event => {
+            if (event.key === "ArrowLeft") bucket.x = Math.max(0, bucket.x - bucket.speed);
+            if (event.key === "ArrowRight") bucket.x = Math.min(canvas.width - bucket.width, bucket.x + bucket.speed);
+        });
+
+        canvas.addEventListener("touchmove", event => {
+            const touchX = event.touches[0].clientX;
+            bucket.x = Math.min(canvas.width - bucket.width, Math.max(0, touchX - bucket.width / 2));
+        });
+
+        loginButton.addEventListener("click", loginWithGoogle);
+        guestButton.addEventListener("click", () => {
+            isGameRunning = true;
+            gameLoop();
+        });
+
+        // Spawn objects periodically
         setInterval(() => {
-            if (isGameRunning) {
-                const x = Math.random() * canvas.width;
-                objects.push({ x, y: 0, speed: Math.min(5 + level * 0.5, 15) });
-                if (Math.random() < 0.1) generatePowerUp(); // Random power-up
-            }
+            if (isGameRunning) spawnObject();
         }, 1000);
 
-        window.addEventListener("keydown", (e) => {
-            if (e.key === "ArrowLeft") bucket.x = Math.max(0, bucket.x - bucket.speed);
-            if (e.key === "ArrowRight") bucket.x = Math.min(canvas.width - bucket.width, bucket.x + bucket.speed);
-        });
-
-        window.addEventListener("resize", () => {
-            const oldWidth = canvas.width;
-            const oldHeight = canvas.height;
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            bucket.x = (bucket.x / oldWidth) * canvas.width;
-            objects.forEach((obj) => {
-                obj.x = (obj.x / oldWidth) * canvas.width;
-                obj.y = (obj.y / oldHeight) * canvas.height;
-            });
-        });
+        // Save progress periodically
+        setInterval(() => {
+            if (auth.currentUser && isGameRunning) saveProgress(auth.currentUser.uid);
+        }, 5000);
     </script>
 </body>
 </html>
