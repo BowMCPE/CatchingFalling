@@ -187,7 +187,9 @@
             signInWithPopup(auth, provider)
                 .then(result => {
                     const user = result.user;
+                    console.log(`Logged in as: ${user.displayName}`);
                     loadProgress(user.uid);
+                    document.getElementById("menu").style.display = "none"; // Hide menu
                     isGameRunning = true;
                     gameLoop();
                 })
@@ -233,6 +235,7 @@
 
         loginButton.addEventListener("click", loginWithGoogle);
         guestButton.addEventListener("click", () => {
+            document.getElementById("menu").style.display = "none"; // Hide menu
             isGameRunning = true;
             gameLoop();
         });
