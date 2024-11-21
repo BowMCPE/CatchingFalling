@@ -123,7 +123,7 @@
         let level = 1;
         let missedObjects = 0;
         const maxMissed = 5;
-        const objects = [];
+        let objects = []; // Changed to `let` for mutability
         const bucket = {
             x: canvas.width / 2 - 50,
             y: canvas.height - 30,
@@ -184,6 +184,7 @@
                 height: size,
                 speed: Math.random() * 2 + level
             });
+            console.log("Spawning object:", objects);
         }
 
         function drawBucket() {
@@ -221,6 +222,7 @@
         }
 
         function gameLoop() {
+            console.log("Game loop running");
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawBucket();
             drawObjects();
@@ -228,6 +230,16 @@
             updateUI();
             requestAnimationFrame(gameLoop);
         }
+
+        // Add keyboard controls for bucket movement
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "ArrowLeft") {
+                bucket.x = Math.max(0, bucket.x - bucket.speed);
+            } else if (event.key === "ArrowRight") {
+                bucket.x = Math.min(canvas.width - bucket.width, bucket.x + bucket.speed);
+            }
+            console.log("Bucket position:", bucket.x);
+        });
 
         loginButton.addEventListener("click", () => {
             const provider = new GoogleAuthProvider();
