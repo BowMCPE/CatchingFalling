@@ -123,7 +123,10 @@
         let level = 1;
         let missedObjects = 0;
         const maxMissed = 5;
-        let objects = []; // Changed to `let` for mutability
+        let objects = [];
+        let spawnInterval;
+        let isRunning = false;
+
         const bucket = {
             x: canvas.width / 2 - 50,
             y: canvas.height - 30,
@@ -184,7 +187,6 @@
                 height: size,
                 speed: Math.random() * 2 + level
             });
-            console.log("Spawning object:", objects);
         }
 
         function drawBucket() {
@@ -216,13 +218,34 @@
             });
 
             if (missedObjects >= maxMissed) {
+                isRunning = false; // Stop the game loop
                 alert("Game Over!");
-                location.reload();
+                resetGame();
             }
         }
 
+        function resetGame() {
+            clearInterval(spawnInterval); // Clear spawning interval
+            score = 0;
+            coins = 0;
+            level = 1;
+            missedObjects = 0;
+            objects = [];
+            bucket.x = canvas.width / 2 - 50;
+            updateUI();
+            startGame(); // Restart the game
+        }
+
+        function startGame() {
+            isRunning = true;
+            spawnInterval = setInterval(() => {
+                if (objects.length < 5) spawnObject();
+            }, 1000);
+            gameLoop();
+        }
+
         function gameLoop() {
-            console.log("Game loop running");
+            if (!isRunning) return; // Stop the loop if the game is not running
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawBucket();
             drawObjects();
@@ -231,36 +254,29 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Add keyboard controls for bucket movement
         document.addEventListener("keydown", (event) => {
             if (event.key === "ArrowLeft") {
                 bucket.x = Math.max(0, bucket.x - bucket.speed);
             } else if (event.key === "ArrowRight") {
                 bucket.x = Math.min(canvas.width - bucket.width, bucket.x + bucket.speed);
             }
-            console.log("Bucket position:", bucket.x);
         });
 
         loginButton.addEventListener("click", () => {
             const provider = new GoogleAuthProvider();
             signInWithPopup(auth, provider).then(result => {
-                console.log("Logged in:", result.user.displayName);
                 document.getElementById("menu").classList.remove("active");
-                gameLoop();
+                startGame();
             });
         });
 
         guestButton.addEventListener("click", () => {
             document.getElementById("menu").classList.remove("active");
-            gameLoop();
+            startGame();
         });
 
         shopButton.addEventListener("click", openShop);
         closeShopButton.addEventListener("click", closeShop);
-
-        setInterval(() => {
-            if (objects.length < 5) spawnObject();
-        }, 1000);
     </script>
 </body>
 </html>
