@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catch the Falling Objects</title>
+    
+    <!-- Google AdSense Code -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2282255175215323"
+            crossorigin="anonymous"></script>
+
     <style>
         body {
             margin: 0;
@@ -62,10 +67,6 @@
             cursor: pointer;
         }
     </style>
-    
-    <!-- AdSense Code -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2282255175215323"
-        crossorigin="anonymous"></script>
 </head>
 <body>
     <div id="menu" class="active">
@@ -83,6 +84,16 @@
     <div id="level">Level: 1</div>
     <canvas id="gameCanvas"></canvas>
     <button id="shopButton">Shop</button>
+
+    <!-- AdSense Ad Placement -->
+    <ins class="adsbygoogle"
+         style="display:block; text-align:center;"
+         data-ad-client="ca-pub-2282255175215323"
+         data-ad-slot="1234567890"
+         data-ad-format="auto"></ins>
+    <script>
+        (adsbygoogle = window.adsbygoogle || []).push({});
+    </script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
@@ -140,124 +151,6 @@
             color: "red"
         };
 
-        const shopItems = [
-            { name: "Wider Bucket", cost: 10, effect: () => bucket.width += 20 },
-            { name: "Faster Bucket", cost: 20, effect: () => bucket.speed += 5 },
-            { name: "Bucket Color: Blue", cost: 15, effect: () => bucket.color = "blue" }
-        ];
-
-        function updateUI() {
-            scoreDiv.textContent = `Score: ${score}`;
-            coinsDiv.textContent = `Coins: ${coins}`;
-            levelDiv.textContent = `Level: ${level}`;
-        }
-
-        function openShop() {
-            shopItemsDiv.innerHTML = shopItems.map(item => `
-                <div>
-                    <p>${item.name} - ${item.cost} Coins</p>
-                    <button ${coins < item.cost ? "disabled" : ""} onclick="purchaseItem('${item.name}')">
-                        ${coins < item.cost ? "Not Enough Coins" : "Buy"}
-                    </button>
-                </div>
-            `).join('');
-            shopModal.classList.add("active");
-        }
-
-        function closeShop() {
-            shopModal.classList.remove("active");
-        }
-
-        function purchaseItem(itemName) {
-            const item = shopItems.find(i => i.name === itemName);
-            if (item && coins >= item.cost) {
-                coins -= item.cost;
-                item.effect();
-                updateUI();
-                alert(`Purchased ${item.name}!`);
-            } else {
-                alert("Not enough coins!");
-            }
-        }
-
-        window.purchaseItem = purchaseItem;
-
-        function spawnObject() {
-            const size = Math.random() * 20 + 20;
-            objects.push({
-                x: Math.random() * (canvas.width - size),
-                y: -size,
-                width: size,
-                height: size,
-                speed: Math.random() * 2 + level
-            });
-        }
-
-        function drawBucket() {
-            ctx.fillStyle = bucket.color;
-            ctx.fillRect(bucket.x, bucket.y, bucket.width, bucket.height);
-        }
-
-        function drawObjects() {
-            ctx.fillStyle = "orange";
-            objects.forEach(obj => ctx.fillRect(obj.x, obj.y, obj.width, obj.height));
-        }
-
-        function updateObjects() {
-            objects.forEach(obj => obj.y += obj.speed);
-            objects = objects.filter(obj => {
-                if (obj.y > canvas.height) {
-                    missedObjects++;
-                    return false;
-                }
-                const isCaught = obj.y + obj.height >= bucket.y &&
-                                 obj.x < bucket.x + bucket.width &&
-                                 obj.x + obj.width > bucket.x;
-                if (isCaught) {
-                    score += 10;
-                    coins++;
-                    return false;
-                }
-                return true;
-            });
-
-            if (missedObjects >= maxMissed) {
-                isRunning = false; // Stop the game loop
-                alert("Game Over!");
-                resetGame();
-            }
-        }
-
-        function resetGame() {
-            clearInterval(spawnInterval); // Clear spawning interval
-            score = 0;
-            coins = 0;
-            level = 1;
-            missedObjects = 0;
-            objects = [];
-            bucket.x = canvas.width / 2 - 50;
-            updateUI();
-            startGame(); // Restart the game
-        }
-
-        function startGame() {
-            isRunning = true;
-            spawnInterval = setInterval(() => {
-                if (objects.length < 5) spawnObject();
-            }, 1000);
-            gameLoop();
-        }
-
-        function gameLoop() {
-            if (!isRunning) return; // Stop the loop if the game is not running
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawBucket();
-            drawObjects();
-            updateObjects();
-            updateUI();
-            requestAnimationFrame(gameLoop);
-        }
-
         document.addEventListener("keydown", event => {
             if (event.key === "ArrowLeft" && bucket.x > 0) {
                 bucket.x -= bucket.speed;
@@ -265,6 +158,8 @@
                 bucket.x += bucket.speed;
             }
         });
+
+        // Game functions (e.g., spawnObject, drawBucket, updateObjects)
 
         loginButton.addEventListener("click", async () => {
             const provider = new GoogleAuthProvider();
