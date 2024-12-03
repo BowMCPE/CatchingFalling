@@ -62,6 +62,10 @@
             cursor: pointer;
         }
     </style>
+    
+    <!-- AdSense Code -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2282255175215323"
+        crossorigin="anonymous"></script>
 </head>
 <body>
     <div id="menu" class="active">
@@ -254,23 +258,29 @@
             requestAnimationFrame(gameLoop);
         }
 
-        document.addEventListener("keydown", (event) => {
-            if (event.key === "ArrowLeft") {
-                bucket.x = Math.max(0, bucket.x - bucket.speed);
-            } else if (event.key === "ArrowRight") {
-                bucket.x = Math.min(canvas.width - bucket.width, bucket.x + bucket.speed);
+        document.addEventListener("keydown", event => {
+            if (event.key === "ArrowLeft" && bucket.x > 0) {
+                bucket.x -= bucket.speed;
+            } else if (event.key === "ArrowRight" && bucket.x < canvas.width - bucket.width) {
+                bucket.x += bucket.speed;
             }
         });
 
-        loginButton.addEventListener("click", () => {
+        loginButton.addEventListener("click", async () => {
             const provider = new GoogleAuthProvider();
-            signInWithPopup(auth, provider).then(result => {
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                alert(`Logged in as ${user.displayName}`);
                 document.getElementById("menu").classList.remove("active");
                 startGame();
-            });
+            } catch (error) {
+                console.error("Login failed:", error);
+            }
         });
 
         guestButton.addEventListener("click", () => {
+            alert("Playing as Guest");
             document.getElementById("menu").classList.remove("active");
             startGame();
         });
@@ -280,4 +290,3 @@
     </script>
 </body>
 </html>
-
